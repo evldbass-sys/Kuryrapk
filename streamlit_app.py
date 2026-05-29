@@ -57,7 +57,7 @@ if rolle == "🏬 Restaurant-Ansicht":
                     st.session_state.warenkorb[artikel] += 1
             with cc3:
                 if st.session_state.warenkorb[artikel] > 0:
-                    st.write(f"im Korberl: **{st.session_state.warenkorb[artikel]}x**")
+                    st.write(f"im Korb: **{st.session_state.warenkorb[artikel]}x**")
                     if st.button(f"❌", key=f"remove_{artikel}"):
                         st.session_state.warenkorb[artikel] = 0
 
@@ -74,6 +74,10 @@ if rolle == "🏬 Restaurant-Ansicht":
                 
         st.write("---")
         st.metric("Gesamtsumme", f"{gesamtsumme:.2f} €")
+        
+        # Nová textová pole pro Jméno a Telefon zákazníka
+        kunde_name = st.text_input("Name des Kunden", "Max Mustermann")
+        kunde_telefon = st.text_input("Telefonnummer", "+43 660 1234567")
         adresse = st.text_input("Lieferadresse", "Hauptstraße 12, Stadt")
         zahlung = st.selectbox("Zahlungsart des Kunden", ["Online-Karte", "Barzahlung"])
         
@@ -86,7 +90,7 @@ if rolle == "🏬 Restaurant-Ansicht":
                     "obsah": ", ".join(artikel_im_korb),
                     "cena": f"{gesamtsumme:.2f}",
                     "platba": zahlung,
-                    "adresa": adresse,
+                    "adresa": f"{adresse} | Kunde: {kunde_name} | Tel: {kunde_telefon}",
                     "stav": "Wartet auf Bestätigung",
                     "kuryr": naechster_fahrer,
                     "cas": datetime.now().strftime("%H:%M:%S")
@@ -128,13 +132,13 @@ elif rolle == "🚗 Fahrer-Ansicht (Mobil)":
     
     for d in docs:
         f = d["fields"]
-        if f["kuryr"]["stringValue"] == fahrer_name and f["stav"]["stringValue"] != "Geliefert":
+        if f["kuryr"]["stringValue"] == fahr_name := fahrer_name and f["stav"]["stringValue"] != "Geliefert":
             auftrag_gefunden = True
             doc_name = d["name"]
             
             st.warning(f"🔔 NEUER AUFTRAG ZUGEWIESEN (Zeit: {f['cas']['stringValue']})")
             st.write(f"🍱 **Inhalt:** {f['obsah']['stringValue']}")
-            st.write(f"📍 **Liefern an:** {f['adresa']['stringValue']}")
+            st.write(f"📍 **Lieferdetails:** {f['adresa']['stringValue']}")
             st.write(f"💶 **Zu kassierender Betrag:** {f['cena']['stringValue']} € ({f['platba']['stringValue']})")
             st.write(f"Aktueller Status: `{f['stav']['stringValue']}`")
             
