@@ -75,7 +75,6 @@ if rolle == "🏬 Restaurant-Ansicht":
         st.write("---")
         st.metric("Gesamtsumme", f"{gesamtsumme:.2f} €")
         
-        # Nová textová pole pro Jméno a Telefon zákazníka
         kunde_name = st.text_input("Name des Kunden", "Max Mustermann")
         kunde_telefon = st.text_input("Telefonnummer", "+43 660 1234567")
         adresse = st.text_input("Lieferadresse", "Hauptstraße 12, Stadt")
@@ -132,7 +131,7 @@ elif rolle == "🚗 Fahrer-Ansicht (Mobil)":
     
     for d in docs:
         f = d["fields"]
-        if f["kuryr"]["stringValue"] == fahr_name := fahrer_name and f["stav"]["stringValue"] != "Geliefert":
+        if f["kuryr"]["stringValue"] == fahrer_name and f["stav"]["stringValue"] != "Geliefert":
             auftrag_gefunden = True
             doc_name = d["name"]
             
