@@ -3,6 +3,8 @@ import requests
 import json
 import time
 from datetime import datetime
+# Importujeme auto-refresh knihovnu
+from streamlit_autorefresh import st_autorefresh
 
 # ====== FIREBASE SETTINGS ======
 PROJECT_ID = "volt-a-value" 
@@ -68,7 +70,7 @@ rolle = st.sidebar.radio("Bereich auswählen:", [
     "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)"
 ])
 
-# ====== REÁLNÉ GASTRO FOTKY PRO KACHLÍKY (Přímé URL odkazy) ======
+# ====== MULTI-RESTAURANT MENUE STRUCTURE ======
 url_burger = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60"
 url_chicken = "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500&auto=format&fit=crop&q=60"
 url_wrap = "https://images.unsplash.com/photo-1626700051175-6518c4793f4f?w=500&auto=format&fit=crop&q=60"
@@ -76,7 +78,6 @@ url_kebab = "https://images.unsplash.com/photo-1628258475456-0224b1e4225a?w=500&
 url_pizza = "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=60"
 url_schnitzel = "https://images.unsplash.com/photo-1599921841143-819065a55cc6?w=500&auto=format&fit=crop&q=60"
 
-# ====== MULTI-RESTAURANT MENUE STRUCTURE ======
 restaurants_menue = {
     "Smash Brothers": {
         "Cheese Burger": {"preis": 9.00, "icon": "🍔", "kat": "Smash Burger", "extras": True, "bild": url_burger},
@@ -127,7 +128,6 @@ def rendering_menue_grid(aktive_rest, session_key):
                     artikel, info = items[i + j]
                     with cols[j]:
                         with st.container(border=True):
-                            # Vykreslení fotky jídla navrchu kachlíku (pokud v menu existuje odkaz)
                             if "bild" in info:
                                 st.image(info["bild"], use_container_width=True)
                                 
@@ -159,31 +159,57 @@ if "kunden_korb_liste" not in st.session_state: st.session_state.kunden_korb_lis
 if "rest_korb_liste" not in st.session_state: st.session_state.rest_korb_liste = []
 if "gewaehltes_rest_kunde" not in st.session_state: st.session_state.gewaehltes_rest_kunde = None
 if "gewaehltes_rest_kassa" not in st.session_state: st.session_state.gewaehltes_rest_kassa = "Smash Brothers"
+if "aktiver_korb_rest" not in st.session_state: st.session_state.aktiver_korb_rest = None
 
-# ====== 1. KUNDEN-ANSICHT ======
+# ====== 1. KUNDEN-ANSICHT (Bez auto-refreshe, aby neblikala při výběru) ======
 if rolle == "🏠 1. Kunden-Ansicht (Bestellung von zu Hause)":
     st.header("🚚 Online-Bestellung – Restaurant wählen")
     
     c_rest1, c_rest2 = st.columns(2)
     with c_rest1:
         if st.button("🍔 SMASH BROTHERS", use_container_width=True, type="primary" if st.session_state.gewaehltes_rest_kunde == "Smash Brothers" else "secondary"):
-            st.session_state.gewaehltes_rest_kunde = "Smash Brothers"
-            st.rerun()
+            if st.session_state.kunden_korb_liste and st.session_state.aktiver_korb_rest != "Smash Brothers":
+                st.session_state.wunsch_rest = "Smash Brothers"
+            else:
+                st.session_state.gewaehltes_rest_kunde = "Smash Brothers"
+                st.rerun()
+                
     with c_rest2:
         if st.button("🥙 KING FOOD (Kebab & Pizza)", use_container_width=True, type="primary" if st.session_state.gewaehltes_rest_kunde == "King Food" else "secondary"):
-            st.session_state.gewaehltes_rest_kunde = "King Food"
-            st.rerun()
+            if st.session_state.kunden_korb_liste and st.session_state.aktiver_korb_rest != "King Food":
+                st.session_state.wunsch_rest = "King Food"
+            else:
+                st.session_state.gewaehltes_rest_kunde = "King Food"
+                st.rerun()
             
     st.write("---")
     
+    if "wunsch_rest" in st.session_state and st.session_state.wunsch_rest is not None:
+        with st.container(border=True):
+            st.error(f"🛑 Achtung! Du hast bereits Artikel von **{st.session_state.aktiver_korb_rest}** im Warenkorb.")
+            st.write("Ein Mischen von verschiedenen Restaurants in einer Bestellung ist nicht möglich.")
+            c_clear1, c_clear2 = st.columns(2)
+            if c_clear1.button("🗑️ Warenkorb leeren & wechseln", type="primary", use_container_width=True):
+                st.session_state.kunden_korb_liste = []
+                st.session_state.aktiver_korb_rest = None
+                st.session_state.gewaehltes_rest_kunde = st.session_state.wunsch_rest
+                st.session_state.wunsch_rest = None
+                st.rerun()
+            if c_clear2.button("❌ Abbrechen", use_container_width=True):
+                st.session_state.wunsch_rest = None
+                st.rerun()
+                
     if st.session_state.gewaehltes_rest_kunde is None:
-        st.info("Bitte wählen Sie oben ein Restaurant aus, um die Speisekarte anzuzeigen.")
+        st.info("Bitte wählen Sie oben ein Restaurant aus.")
     else:
         st.subheader(f"Speisekarte von: {st.session_state.gewaehltes_rest_kunde}")
         col1, col2 = st.columns([2, 1])
         
         with col1:
+            l_vorher = len(st.session_state.kunden_korb_liste)
             rendering_menue_grid(st.session_state.gewaehltes_rest_kunde, "kunden_korb")
+            if len(st.session_state.kunden_korb_liste) > l_vorher:
+                st.session_state.aktiver_korb_rest = st.session_state.gewaehltes_rest_kunde
 
         with col2:
             st.subheader("📋 Meine Bestellung")
@@ -193,6 +219,7 @@ if rolle == "🏠 1. Kunden-Ansicht (Bestellung von zu Hause)":
             if not st.session_state.kunden_korb_liste:
                 st.info("Dein Warenkorb ist leer.")
             else:
+                st.caption(f"Bestellung von: {st.session_state.aktiver_korb_rest}")
                 for idx, item in enumerate(st.session_state.kunden_korb_liste):
                     st.text(f"• {item['name']} = {item['preis']:.2f} €")
                     gesamtsumme += item["preis"]
@@ -200,6 +227,7 @@ if rolle == "🏠 1. Kunden-Ansicht (Bestellung von zu Hause)":
                     
                 if st.button("🧹 Korb leeren", key="clear_kunden"):
                     st.session_state.kunden_korb_liste = []
+                    st.session_state.aktiver_korb_rest = None
                     st.rerun()
                     
             st.write("---")
@@ -213,7 +241,7 @@ if rolle == "🏠 1. Kunden-Ansicht (Bestellung von zu Hause)":
             if st.session_state.kunden_korb_liste:
                 if st.button("🚀 BESTELLUNG ABSENDEN", type="primary", use_container_width=True):
                     neue_bestellung = {
-                        "restaurant": st.session_state.gewaehltes_rest_kunde,
+                        "restaurant": st.session_state.aktiver_korb_rest,
                         "obsah": ", ".join(artikel_strings),
                         "cena": f"{gesamtsumme:.2f}",
                         "platba": k_zahlung,
@@ -226,11 +254,15 @@ if rolle == "🏠 1. Kunden-Ansicht (Bestellung von zu Hause)":
                     }
                     bestellung_speichern(neue_bestellung)
                     st.session_state.kunden_korb_liste = []
+                    st.session_state.aktiver_korb_rest = None
                     st.success("🎉 Abgesendet!")
                     st.rerun()
 
-# ====== 2. KASSA / EINGABE ======
+# ====== 2. KASSA / EINGABE (AUTOREFRESH 5 VTEŘIN) ======
 elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
+    # STRÁNKA SE KAŽDÝCH 5 VTEŘIN SAMA AKTUALIZUJE V CLOUDU
+    st_autorefresh(interval=5 * 1000, key="kassa_autorefresh")
+    
     st.header("🏬 Kassa & Auftragsannahme")
     docs = bestellungen_laden()
     
@@ -340,8 +372,11 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
         alle_bestellungen_loeschen()
         st.rerun()
 
-# ====== 3. KÜCHE MONITOR ======
+# ====== 3. KÜCHE MONITOR (AUTOREFRESH 5 VTEŘIN) ======
 elif rolle == "👨‍🍳 3. Küche Monitor":
+    # KUCHYŇ SE AKTUALIZUJE SAMA KAŽDÝCH 5 VTEŘIN, KUCHAŘ NEMUSÍ SAHAT NA TABLET
+    st_autorefresh(interval=5 * 1000, key="kueche_autorefresh")
+    
     st.header("👨‍🍳 Monitor v kuchyni (Küche Monitor)")
     docs = bestellungen_laden()
     offene_kueche = False
@@ -397,8 +432,11 @@ elif rolle == "👨‍🍳 3. Küche Monitor":
     if not offene_kueche:
         st.info("Aktuell keine Bestellungen in der Küche. Gute Arbeit! ✨")
 
-# ====== 4. FAHRER-ANSICHT ======
+# ====== 4. FAHRER-ANSICHT (AUTOREFRESH 5 VTEŘIN) ======
 elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
+    # KURIER MÁ V AUTĚ AUTO-REFRESH KAŽDÝCH 5 VTEŘIN, ABY HNED VIDĚL ZMĚNY STAVU
+    st_autorefresh(interval=5 * 1000, key="fahrer_autorefresh")
+    
     st.header("Kurier-App (Unterwegs)")
     fahrer_name = "Petr (Auto)"
     
