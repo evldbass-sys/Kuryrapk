@@ -67,7 +67,6 @@ menue = {
 }
 RESTAURANT_NAME = "Smash Brothers"
 
-# Možnosti Extra doplňků a jejich ceny
 extra_options = {
     "Extra Fleisch (+3.00 €)": 3.00,
     "Extra Gurken (+0.50 €)": 0.50,
@@ -88,7 +87,7 @@ def rendering_menue_grid(session_key):
                     with cols[j]:
                         with st.container(border=True):
                             st.markdown(f"**{info['icon']} {artikel}**")
-                            st.markdown(f"<code style='font-size: 14px; background-color: #f0f2f6; padding: 1px 5px; border-radius: 4px;'>{info['preis']:.2f} €</code>", unsafe_allow_html=True)
+                            st.markdown(f"<code style='font-size: 14px; background-color: #f0f2f6; padding: 1px 5px; border-radius: 4px; color: #333;'>{info['preis']:.2f} €</code>", unsafe_allow_html=True)
                             
                             selected_extras = []
                             extra_cost = 0.0
@@ -111,7 +110,6 @@ def rendering_menue_grid(session_key):
                                 time.sleep(0.2)
                                 st.rerun()
 
-# ====== INICIALIZACE SEZNAMŮ KOŠÍKŮ ======
 if "kunden_korb_liste" not in st.session_state: st.session_state.kunden_korb_liste = []
 if "rest_korb_liste" not in st.session_state: st.session_state.rest_korb_liste = []
 
@@ -268,12 +266,11 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
                 st.rerun()
 
     st.write("---")
-    # ZDE OPRAVENO: Odstraněna chyba z řádku 266, příkazy jsou korektně pod sebou
     if st.button("🗑️ Gesamte Cloud-Historie löschen"): 
         alle_bestellungen_loeschen()
         st.rerun()
 
-# ====== 3. KÜCHE MONITOR ======
+# ====== 3. KÜCHE MONITOR (ČISTÝ OPRAVENÝ BON S ČERNÝM PÍSMEM) ======
 elif rolle == "👨‍🍳 3. Küche Monitor":
     st.header("👨‍🍳 Monitor v kuchyni (Küche Monitor)")
     docs = bestellungen_laden()
@@ -290,29 +287,40 @@ elif rolle == "👨‍🍳 3. Küche Monitor":
         if status == "In Zubereitung (Küche)":
             offene_kueche = True
             with cols_kueche[k_idx % 3]:
-                st.markdown(
-                    f"""
-                    <div style="background-color: #ffffff; border: 2px solid #000000; border-top: 8px dashed #000000; padding: 15px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; color: #000000;">
-                        <div style="text-align: center; font-weight: bold; font-size: 20px;">KÜCHEN-BON</div>
-                        <div style="text-align: center; font-size: 14px; margin-bottom: 10px;">ID: ...{doc_name[-5:]} | Zeit: {f['cas']['stringValue']}</div>
-                        <hr style="border-top: 1px dashed #000000; margin: 5px 0;">
-                        <div style="font-size: 16px; font-weight: bold; min-height: 100px;">
-                    """, unsafe_allow_html=True
-                )
-                
-                items_list = f['obsah']['stringValue'].split(", ")
-                for item in items_list:
-                    st.markdown(f"<span style='color:black; font-size:16px;'>• {item}</span>", unsafe_allow_html=True)
-                
-                st.markdown(f"</div><hr style='border-top: 1px dashed #000000; margin: 5px 0;'><div style='color:black; font-size: 12px;'><b>Kassa:</b> {f['platba']['stringValue']}</div></div>", unsafe_allow_html=True)
-                st.write("")
-                
-                if st.button(f"✅ READY / HOTOVO (ID: {doc_name[-5:]})", key=f"hotovo_kuch_{doc_name}", type="primary", use_container_width=True):
-                    c_prip = f.get("cas_pripravy", {}).get("stringValue", "10")
-                    bestellstatus_aktualisieren(doc_name, "Ready for Pick-up", "Petr (Auto)", f["adresa"]["stringValue"], c_prip)
-                    st.success(f"ID {doc_name[-5:]} FERTIG!")
-                    time.sleep(0.3)
-                    st.rerun()
+                # Kompletní oprava obálky: pozadí bílé, ale veškerý vnitřní text natvrdo černý, bez přetékání
+                with st.container(border=True):
+                    st.markdown(
+                        f"""
+                        <div style="background-color: #ffffff; border: 2px solid #333333; border-top: 8px dashed #333333; padding: 15px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; color: #000000 !important;">
+                            <div style="text-align: center; font-weight: bold; font-size: 22px; color: #000000 !important; margin-bottom: 2px;">KÜCHEN-BON</div>
+                            <div style="text-align: center; font-size: 13px; color: #555555 !important; margin-bottom: 8px;">ID: ...{doc_name[-5:]} | Zeit: {f['cas']['stringValue']}</div>
+                            <hr style="border-top: 1px dashed #333333; margin: 5px 0;">
+                            <div style="margin-top: 10px; margin-bottom: 10px;">
+                        """, unsafe_allow_html=True
+                    )
+                    
+                    # Bezpečné vypsání obsahu jako čisté černé řádky
+                    items_list = f['obsah']['stringValue'].split(", ")
+                    for item in items_list:
+                        st.markdown(f"<p style='color: #000000 !important; font-size: 16px; font-weight: bold; margin: 4px 0; padding: 0;'>• {item}</p>", unsafe_allow_html=True)
+                    
+                    st.markdown(
+                        f"""
+                            </div>
+                            <hr style="border-top: 1px dashed #333333; margin: 5px 0;">
+                            <div style="color: #000000 !important; font-size: 13px; margin-top: 5px;"><b>Kassa:</b> {f['platba']['stringValue']}</div>
+                        </div>
+                        """, unsafe_allow_html=True
+                    )
+                    st.write("")
+                    
+                    # Tlačítko na potvrzení je bezpečně pod HTML strukturou, takže nezmizí
+                    if st.button(f"✅ READY / HOTOVO (ID: {doc_name[-5:]})", key=f"hotovo_kuch_{doc_name}", type="primary", use_container_width=True):
+                        c_prip = f.get("cas_pripravy", {}).get("stringValue", "10")
+                        bestellstatus_aktualisieren(doc_name, "Ready for Pick-up", "Petr (Auto)", f["adresa"]["stringValue"], c_prip)
+                        st.success(f"ID {doc_name[-5:]} FERTIG!")
+                        time.sleep(0.3)
+                        st.rerun()
             k_idx += 1
             
     if not offene_kueche:
@@ -377,7 +385,7 @@ elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
                     st.write(f"💰 **Trinkgeld:** {dysko_val} €")
                     
                     if status == "In Zubereitung (Küche)":
-                        st.markdown(f"<div style='padding:10px; background-color:#FFF3CD; border-radius:5px;'><b>⏱️ Eingestellte Zubereitungszeit: cca. {minuten_pripravy} Minuten.</b> Du kannst entsprechend hinfahren.</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='padding:10px; background-color:#FFF3CD; border-radius:5px; color: #333;'><b>⏱️ Eingestellte Zubereitungszeit: cca. {minuten_pripravy} Minuten.</b> Du kannst entsprechend hinfahren.</div>", unsafe_allow_html=True)
                         if st.button("🔄 Aktualisieren", key=f"refresh_{doc_name}"): st.rerun()
                     elif status == "Ready for Pick-up":
                         st.markdown("<b style='color:#28a745;'>Das Essen wartet verpackt an der Theke!</b>", unsafe_allow_html=True)
