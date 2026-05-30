@@ -90,7 +90,6 @@ def rendering_menue_grid(session_key):
                             st.markdown(f"**{info['icon']} {artikel}**")
                             st.markdown(f"<code style='font-size: 14px; background-color: #f0f2f6; padding: 1px 5px; border-radius: 4px;'>{info['preis']:.2f} €</code>", unsafe_allow_html=True)
                             
-                            # Pokud položka podporuje extra ingredience, ukážeme výběr
                             selected_extras = []
                             extra_cost = 0.0
                             if info["extras"]:
@@ -102,7 +101,6 @@ def rendering_menue_grid(session_key):
                             
                             st.write("")
                             if st.button("➕ Hinzufügen", key=f"{session_key}_btn_{artikel}", use_container_width=True):
-                                # Vytvoříme unikátní klíč zápisu do košíku včetně zvolených extras
                                 název_polozky = artikel
                                 if selected_extras:
                                     název_polozky += f" ({', '.join(selected_extras)})"
@@ -195,9 +193,13 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
                 with col_o2:
                     st.markdown(f"⏱️ **Zubereitungszeit:** `{st.session_state.zeit_online[doc_name]} Min`")
                     zc1, zc2 = st.columns(2)
-                    if zc1.button("➕ 5 Min", key=f"p5_on_{doc_name}"): st.session_state.zeit_online[doc_name] += 5; st.rerun()
+                    if zc1.button("➕ 5 Min", key=f"p5_on_{doc_name}"): 
+                        st.session_state.zeit_online[doc_name] += 5
+                        st.rerun()
                     if zc2.button("➖ 5 Min", key=f"m5_on_{doc_name}"):
-                        if st.session_state.zeit_online[doc_name] > 5: st.session_state.zeit_online[doc_name] -= 5; st.rerun()
+                        if st.session_state.zeit_online[doc_name] > 5: 
+                            st.session_state.zeit_online[doc_name] -= 5
+                            st.rerun()
                 with col_o3:
                     if st.button("✔️ Bestätigen & Küche", key=f"prij_online_{doc_name}", type="primary", use_container_width=True):
                         bestellstatus_aktualisieren(doc_name, "In Zubereitung (Küche)", "Petr (Auto)", f["adresa"]["stringValue"], st.session_state.zeit_online[doc_name])
@@ -221,7 +223,6 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
             for item in st.session_state.rest_korb_liste:
                 st.text(f"• {item['name']} = {item['preis']:.2f} €")
                 r_summe += item["preis"]
-                r_part = item["name"].split(" (")[0]
                 r_artikel_strings.append(item["name"])
                 
             if st.button("🧹 Beleg leeren", key="clear_rest"):
@@ -237,9 +238,13 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
         
         st.markdown(f"⏱️ **Zubereitungszeit pro Küche:** `{st.session_state.zeit_manuell} Min`")
         mc1, mc2 = st.columns(2)
-        if mc1.button("➕ 5 Min", key="p5_man"): st.session_state.zeit_manuell += 5; st.rerun()
+        if mc1.button("➕ 5 Min", key="p5_man"): 
+            st.session_state.zeit_manuell += 5
+            st.rerun()
         if mc2.button("➖ 5 Min", key="m5_man"):
-            if st.session_state.zeit_manuell > 5: st.session_state.zeit_manuell -= 5; st.rerun()
+            if st.session_state.zeit_manuell > 5: 
+                st.session_state.zeit_manuell -= 5
+                st.rerun()
                 
         if st.button("📥 DIREKT IN DIE KÜCHE SENDEN", type="primary", use_container_width=True):
             if not r_artikel_strings:
@@ -263,4 +268,131 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
                 st.rerun()
 
     st.write("---")
-    if st.button("🗑️ Gesamte Cloud-Historie löschen"): alle_bestellungen_loeschen(); st.
+    # ZDE OPRAVENO: Odstraněna chyba z řádku 266, příkazy jsou korektně pod sebou
+    if st.button("🗑️ Gesamte Cloud-Historie löschen"): 
+        alle_bestellungen_loeschen()
+        st.rerun()
+
+# ====== 3. KÜCHE MONITOR ======
+elif rolle == "👨‍🍳 3. Küche Monitor":
+    st.header("👨‍🍳 Monitor v kuchyni (Küche Monitor)")
+    docs = bestellungen_laden()
+    offene_kueche = False
+    
+    cols_kueche = st.columns(3)
+    k_idx = 0
+    
+    for d in docs:
+        f = d["fields"]
+        status = f["stav"]["stringValue"]
+        doc_name = d["name"]
+        
+        if status == "In Zubereitung (Küche)":
+            offene_kueche = True
+            with cols_kueche[k_idx % 3]:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #ffffff; border: 2px solid #000000; border-top: 8px dashed #000000; padding: 15px; border-radius: 4px; font-family: 'Courier New', Courier, monospace; color: #000000;">
+                        <div style="text-align: center; font-weight: bold; font-size: 20px;">KÜCHEN-BON</div>
+                        <div style="text-align: center; font-size: 14px; margin-bottom: 10px;">ID: ...{doc_name[-5:]} | Zeit: {f['cas']['stringValue']}</div>
+                        <hr style="border-top: 1px dashed #000000; margin: 5px 0;">
+                        <div style="font-size: 16px; font-weight: bold; min-height: 100px;">
+                    """, unsafe_allow_html=True
+                )
+                
+                items_list = f['obsah']['stringValue'].split(", ")
+                for item in items_list:
+                    st.markdown(f"<span style='color:black; font-size:16px;'>• {item}</span>", unsafe_allow_html=True)
+                
+                st.markdown(f"</div><hr style='border-top: 1px dashed #000000; margin: 5px 0;'><div style='color:black; font-size: 12px;'><b>Kassa:</b> {f['platba']['stringValue']}</div></div>", unsafe_allow_html=True)
+                st.write("")
+                
+                if st.button(f"✅ READY / HOTOVO (ID: {doc_name[-5:]})", key=f"hotovo_kuch_{doc_name}", type="primary", use_container_width=True):
+                    c_prip = f.get("cas_pripravy", {}).get("stringValue", "10")
+                    bestellstatus_aktualisieren(doc_name, "Ready for Pick-up", "Petr (Auto)", f["adresa"]["stringValue"], c_prip)
+                    st.success(f"ID {doc_name[-5:]} FERTIG!")
+                    time.sleep(0.3)
+                    st.rerun()
+            k_idx += 1
+            
+    if not offene_kueche:
+        st.info("Aktuell keine Bestellungen in der Küche. Gute Arbeit! ✨")
+
+# ====== 4. FAHRER-ANSICHT ======
+elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
+    st.header("Kurier-App (Unterwegs)")
+    fahrer_name = "Petr (Auto)"
+    
+    if "bargeld_eur" not in st.session_state:
+        st.session_state.bargeld_eur = 0.0
+        st.session_state.provision_eur = 0.0
+        st.session_state.trinkgeld_eur = 0.0
+
+    st.subheader("📊 Meine Finanzübersicht")
+    c1, c2, c3 = st.columns(3)
+    with c1: st.metric("Meine Provision (Fix 4€/Fahrt)", f"{st.session_state.provision_eur:.2f} €")
+    with c2: st.metric("Erhaltenes Trinkgeld (Dýško)", f"{st.session_state.trinkgeld_eur:.2f} €")
+    with c3: st.metric("Eingenommenes Bargeld (Limit 200€)", f"{st.session_state.bargeld_eur:.2f} / 200.00 €")
+    st.write("---")
+    
+    if st.session_state.bargeld_eur >= 200.0:
+        st.error("🛑 BARGELDLIMIT ERREICHT! Du hast mehr als 200€ in bar. Es werden KEINE weiteren Bestellungen empfangen!")
+        st.warning("⚠️ Fahre bitte sofort zur Hauptstation (Volt and value), um das Geld abzurechnen.")
+        if st.button("💰 Geld in der Hauptstation (Volt and value) abgegeben (Reset Cash)", type="primary", use_container_width=True):
+            st.session_state.bargeld_eur = 0.0
+            st.success("Geld erfolgreich abgerechnet!")
+            time.sleep(1)
+            st.rerun()
+    else:
+        st.subheader("Aktuelle Aufträge in der Pipeline")
+        docs = bestellungen_laden()
+        aktive_auftraege = [d for d in docs if d["fields"]["kuryr"]["stringValue"] == fahrer_name 
+                            and d["fields"]["stav"]["stringValue"] in ["In Zubereitung (Küche)", "Ready for Pick-up", "Auf dem Weg zum Kunden"]]
+        
+        if not aktive_auftraege:
+            st.info("Kein aktiver Auftrag. Warte auf die Kassa...")
+        else:
+            for d in aktive_auftraege:
+                f = d["fields"]
+                status = f["stav"]["stringValue"]
+                doc_name = d["name"]
+                dysko_val = f.get("dysko", {}).get("stringValue", "0.00")
+                minuten_pripravy = f.get("cas_pripravy", {}).get("stringValue", "10")
+                
+                if status == "Ready for Pick-up":
+                    border_color = "#28a745"
+                    header_text = "🚨 DER KOCH WAR SCHNELLER! DAS ESSEN IST FERTIG!"
+                elif status == "Auf dem Weg zum Kunden":
+                    border_color = "#007bff"
+                    header_text = "🚚 AUF DEM WEG ZUM KUNDEN (ADRESSE OFFEN)"
+                else:
+                    border_color = "#ffc107"
+                    header_text = "⏳ IN ZUBEREITUNG (KÜCHE KOCHT NOCH)"
+
+                with st.container(border=True):
+                    st.markdown(f"<h3 style='color:{border_color}; margin-top:0;'>{header_text}</h3>", unsafe_allow_html=True)
+                    st.markdown(f"**📍 Abholen bei:** {RESTAURANT_NAME}")
+                    st.write(f"🍱 **Inhalt:** {f['obsah']['stringValue']}")
+                    st.write(f"💶 **Zu kassieren:** {f['cena']['stringValue']} € ({f['platba']['stringValue']})")
+                    st.write(f"💰 **Trinkgeld:** {dysko_val} €")
+                    
+                    if status == "In Zubereitung (Küche)":
+                        st.markdown(f"<div style='padding:10px; background-color:#FFF3CD; border-radius:5px;'><b>⏱️ Eingestellte Zubereitungszeit: cca. {minuten_pripravy} Minuten.</b> Du kannst entsprechend hinfahren.</div>", unsafe_allow_html=True)
+                        if st.button("🔄 Aktualisieren", key=f"refresh_{doc_name}"): st.rerun()
+                    elif status == "Ready for Pick-up":
+                        st.markdown("<b style='color:#28a745;'>Das Essen wartet verpackt an der Theke!</b>", unsafe_allow_html=True)
+                        if st.button("👍 Abholung an der Theke bestätigen", key=f"pick_{doc_name}", type="primary", use_container_width=True):
+                            bestellstatus_aktualisieren(doc_name, "Auf dem Weg zum Kunden", fahrer_name, f["adresa"]["stringValue"], minuten_pripravy)
+                            st.rerun()
+                    elif status == "Auf dem Weg zum Kunden":
+                        st.success("🔓 LIEFERADRESSE FREIGESCHALTET:")
+                        st.markdown(f"➡️ **Wohin du fährst:** `{f['adresa']['stringValue']}`")
+                        if st.button("✅ Geliefert & Kassiert (Auftrag abschließen)", key=f"deliver_{doc_name}", type="primary", use_container_width=True):
+                            st.session_state.provision_eur += 4.00
+                            st.session_state.trinkgeld_eur += float(dysko_val)
+                            if f["platba"]["stringValue"] == "Barzahlung":
+                                st.session_state.bargeld_eur += float(f["cena"]["stringValue"])
+                            bestellstatus_aktualisieren(doc_name, "Geliefert", fahrer_name, f["adresa"]["stringValue"], minuten_pripravy)
+                            st.success("Erfolgreich abgeschlossen!")
+                            time.sleep(0.5)
+                            st.rerun()
