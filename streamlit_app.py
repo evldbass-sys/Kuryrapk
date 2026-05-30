@@ -119,7 +119,6 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
     st.header(f"🏬 Kassa & Auftragsannahme – {RESTAURANT_NAME}")
     docs = bestellungen_laden()
     
-    # Příjem online objednávek zvenku
     st.subheader("🔔 Eingehende ONLINE-Bestellungen (Bestätigung erforderlich)")
     online_gefunden = False
     
@@ -145,7 +144,6 @@ elif rolle == "🏬 2. Kassa / Eingabe (Theke)":
         
     st.write("---")
 
-    # Manuální zadávání objednávek na baru (Telefon/Pult)
     st.subheader("✍️ Manuelle Bestelleingabe (Telefon / Tresen)")
     if "rest_korb" not in st.session_state:
         st.session_state.rest_korb = {artikel: 0 for artikel in menue}
@@ -238,7 +236,7 @@ elif rolle == "👨‍🍳 3. Küche Monitor":
     if not offene_kueche:
         st.info("Aktuell keine Bestellungen in der Küche. Gute Arbeit! ✨")
 
-# ====== 4. FAHRER-ANSICHT (APLIKACE KURÝRA) ======
+# ====== 4. FAHRER-ANSICHT (APLIKACE KURÝRA - PODPORUJE PENDL S VÍCE OBJEDNÁVKAMI) ======
 elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
     st.header("Kurier-App (Unterwegs)")
     fahrer_name = "Petr (Auto)"
@@ -249,7 +247,6 @@ elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
         st.session_state.provision_eur = 0.0
         st.session_state.trinkgeld_eur = 0.0
 
-    # Přehled financí kurýra
     st.subheader("📊 Meine Finanzübersicht")
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -261,7 +258,7 @@ elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
         
     st.write("---")
     
-    # STOPKA PŘI 200 EURO - SMĚROVÁNÍ NA VOLT AND VALUE
+    # STOPKA PŘI 200 EURO - SMĚROVÁNÍ NA HLAVNÍ STANICI VOLT AND VALUE
     if st.session_state.bargeld_eur >= 200.0:
         st.error("🛑 BARGELDLIMIT ERREICHT! Du hast mehr als 200€ in bar. Es werden KEINE weiteren Bestellungen empfangen!")
         st.warning("⚠️ Fahre bitte sofort zur Hauptstation (Volt and value), um das Geld abzurechnen.")
@@ -273,59 +270,65 @@ elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
             st.rerun()
             
     else:
-        st.subheader("Aktuell zugewiesener Auftrag")
+        st.subheader("Aktuelle Aufträge in der Pipeline")
         
         docs = bestellungen_laden()
-        auftrag_gefunden = False
+        # Vytáhneme všechny objednávky, které patří Petrovi a nejsou ještě doručené
+        aktive_auftraege = [d for d in docs if d["fields"]["kuryr"]["stringValue"] == fahrer_name 
+                            and d["fields"]["stav"]["stringValue"] in ["In Zubereitung (Küche)", "Ready for Pick-up", "Auf dem Weg zum Kunden"]]
         
-        for d in docs:
-            f = d["fields"]
-            status = f["stav"]["stringValue"]
-            doc_name = d["name"]
-            dysko_val = f.get("dysko", {}).get("stringValue", "0.00")
-            
-            if status in ["In Zubereitung (Küche)", "Ready for Pick-up", "Auf dem Weg zum Kunden"]:
-                if f["kuryr"]["stringValue"] == fahrer_name:
-                    auftrag_gefunden = True
-                    
-                    st.markdown(f"### 📍 Abholen bei: **{RESTAURANT_NAME}**")
+        if not aktive_auftraege:
+            st.info("Kein aktiver Auftrag. Warte auf die Kassa...")
+        else:
+            # Projíždíme všechny aktivní zakázky najednou (každá dostane samostatnou pendl kartu)
+            for d in aktive_auftraege:
+                f = d["fields"]
+                status = f["stav"]["stringValue"]
+                doc_name = d["name"]
+                dysko_val = f.get("dysko", {}).get("stringValue", "0.00")
+                
+                # Barevné a textové rozlišení stavu pro bleskový přehled na mobilu
+                if status == "Ready for Pick-up":
+                    border_color = "#28a745"   # Zelená - jídlo je hotové, seber ho
+                    header_text = "🚨 DER KOCH WAR SCHNELLER! DAS ESSEN IST FERTIG!"
+                elif status == "Auf dem Weg zum Kunden":
+                    border_color = "#007bff"   # Modrá - vezeš k zákazníkovi
+                    header_text = "🚚 AUF DEM WEG ZUM KUNDEN (ADRESSE OFFEN)"
+                else:
+                    border_color = "#ffc107"   # Žlutá - jídlo se ještě vaří
+                    header_text = "⏳ IN ZUBEREITUNG (KÜCHE KOCHT NOCH)"
+
+                with st.container(border=True):
+                    st.markdown(f"<h3 style='color:{border_color}; margin-top:0;'>{header_text}</h3>", unsafe_allow_html=True)
+                    st.markdown(f"**📍 Abholen bei:** {RESTAURANT_NAME}")
                     st.write(f"🍱 **Inhalt:** {f['obsah']['stringValue']}")
                     st.write(f"💶 **Zu kassieren:** {f['cena']['stringValue']} € ({f['platba']['stringValue']})")
-                    st.write(f"💰 **Trinkgeld vom Kunden:** {dysko_val} €")
+                    st.write(f"💰 **Trinkgeld:** {dysko_val} €")
                     
-                    # 1. Jídlo se vaří (Klidový režim, standardní čas)
+                    # 1. STAV: Jídlo se vaří (Kuriér vidí standardní časový box)
                     if status == "In Zubereitung (Küche)":
-                        st.info("⏳ Das Essen wird derzeit in der Küche zubereitet.")
                         st.markdown(
-                            "<div style='padding:20px;background-color:#FFF3CD;border-radius:10px;text-align:center;'>"
-                            "<h2 style='color:#856404;margin:0;'>⏱️ Geplante Zubereitungszeit: ca. 10 Minuten</h2>"
-                            "<p style='margin:5px 0 0 0;'>Fahre bitte in Ruhe zum Restaurant.</p>"
+                            "<div style='padding:10px; background-color:#FFF3CD; border-radius:5px; margin-bottom:10px;'>"
+                            "<b style='color:#856404;'>⏱️ Standard-Zeit: cca. 10 Minuten.</b> Du kannst in Ruhe hinfahren."
                             "</div>", 
                             unsafe_allow_html=True
                         )
-                        if st.button("🔄 Status aktualisieren (Ist das Essen schon fertig?)"):
+                        if st.button("🔄 Aktualisieren", key=f"refresh_{doc_name}"):
                             st.rerun()
-                        
-                    # 2. Kuchyň klikla hotovo (Alarm pro kurýra)
+                            
+                    # 2. STAV: Kuchyň klikla hotovo (Zelená karta, kurýr potvrdí pendl a naloží)
                     elif status == "Ready for Pick-up":
-                        st.markdown(
-                            "<div style='padding:20px;background-color:#F8D7DA;border-left:8px solid #DC3545;border-radius:5px;'>"
-                            "<h2 style='color:#721C24;margin:0;'>🚨 DER KOCH WAR SCHNELLER! DAS ESSEN IST FERTIG!</h2>"
-                            "<p style='color:#721C24;font-size:16px;margin:5px 0 0 0;'><b>Komm bitte sofort zur Theke Smash Brothers! Das Essen wartet verpackt und kühlt ab!</b></p>"
-                            "</div>", 
-                            unsafe_allow_html=True
-                        )
-                        st.write("")
-                        if st.button("👍 Abholung an der Theke bestätigen", type="primary", use_container_width=True):
+                        st.markdown("<b style='color:#28a745;'>Das Essen wartet verpackt an der Theke!</b>", unsafe_allow_html=True)
+                        if st.button("👍 Abholung an der Theke bestätigen", key=f"pick_{doc_name}", type="primary", use_container_width=True):
                             bestellstatus_aktualisieren(doc_name, "Auf dem Weg zum Kunden", fahrer_name, f["adresa"]["stringValue"])
                             st.rerun()
                             
-                    # 3. Rozvoz (Adresa odemčena)
+                    # 3. STAV: Rozvoz na adresu (Kurýr odemkl adresu a může ji dokončit nezávisle na druhé)
                     elif status == "Auf dem Weg zum Kunden":
                         st.success("🔓 LIEFERADRESSE FREIGESCHALTET:")
-                        st.write(f"➡️ **Wohin du fährst:** {f['adresa']['stringValue']}")
+                        st.markdown(f"➡️ **Wohin du fährst:** `{f['adresa']['stringValue']}`")
                         
-                        if st.button("✅ Geliefert & Kassiert (Auftrag abschließen)", type="primary", use_container_width=True):
+                        if st.button("✅ Geliefert & Kassiert (Abschließen)", key=f"deliver_{doc_name}", type="primary", use_container_width=True):
                             st.session_state.provision_eur += 4.00
                             st.session_state.trinkgeld_eur += float(dysko_val)
                             
@@ -334,9 +337,5 @@ elif rolle == "🚗 4. Fahrer-Ansicht (Mobil & Finanzen)":
                             
                             bestellstatus_aktualisieren(doc_name, "Geliefert", fahrer_name, f["adresa"]["stringValue"])
                             st.success("Erfolgreich abgeschlossen!")
-                            time.sleep(1)
+                            time.sleep(0.5)
                             st.rerun()
-                    break
-                    
-        if not auftrag_gefunden:
-            st.info("Kein aktiver Auftrag. Warte auf die Kassa...")
